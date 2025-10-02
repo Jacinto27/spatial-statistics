@@ -1,22 +1,23 @@
 #! a) Build an R function to choose the parameter p in the inverse distance weighting estimator. Hint: use the idw implemented in gstat.
 library(gstat)
 library(sf)
-library(geoR)
 library(ggplot2)
+library(geoR) # wolfcamp data, also in MBA package
+
 data(wolfcamp)
 
 df <- wolfcamp
 #structure(df)
-# remove old yucky geodata structure and turn into a dataframe NOTE: MBA package has wolfcamp as dataframe, step not needed if using
+# remove old geodata structure and turn into a dataframe NOTE: MBA package has wolfcamp as dataframe, step not needed if using
 coords <- df$coords 
 vals <- df$data
 df2 <- data.frame(x = coords[, 1], y = coords[, 2], z = vals)
-#Define as sf
+#Define as sf with the nomenclature from class: x & y are coordinates, z are values
 pts <- st_as_sf(df2, coords = c("x", "y"), crs = NA)
 
 
-#leave one out for loop with rmse validation
-p_vals = c(1, 1.5, 2, 2.5, 3, 4, 5) #I assume theres greater value in miniscule differences between 1 and 3 than 4 and 5
+#leave-one-out loop with rmse validation
+p_vals = c(1, 1.5, 2, 2.5, 3, 4, 5) #I assume theres greater value in miniscule differences between 1 and 3 than 4 and 5, ask the prof.
 
   #score
   rmse <- function(e) {
@@ -54,7 +55,7 @@ if (func == "idw") {
 
 }
 
-cv_table <- data.frame(p = p_vals, RMSE = scores)
+cv_table <- data.frame(p = p_vals, RMSE = scores) #store in table and 
 cv_table <- cv_table[order(cv_table$RMSE), ] # sort results by lowest error
 
 return(cv_table)
