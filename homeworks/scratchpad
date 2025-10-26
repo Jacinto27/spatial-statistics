@@ -1,0 +1,258 @@
+
+# 2) k-fold CV for IDW over grid of p values
+kfoldcv_idw <- function(pts, p_vals = c(1, 1.5, 2, 2.5, 3), fold_ids, nmax = 15, verbose = TRUE) {
+  stopifnot(length(fold_ids) == nrow(pts))
+  coords <- st_coordinates(pts)
+  z_vec <- st_drop_geometry (pts)$z
+  k <- max(fold_ids)
+
+  # containers
+  rmse_vec <- numeric(length(p_vals))
+  fold_rmse_mat <- matrix(NA_real_, nrow = length(p_vals), ncol = k,
+                          dimnames = list(as.character(p_vals), paste0("fold", 1:k)))
+
+  for (pi in seq_along(p_vals)) {
+    p <- p_vals[pi]
+    if (verbose) cat("IDW: p =", p, "...\n")
+    fold_errs <- vector("list", k)
+
+    for (fold in 1:k) {
+      test_idx <- which(fold_ids == fold)
+      train_idx <- which(fold_ids != fold)
+
+      # prepare training and test for gstat::idw
+      train_df <- data.frame(x = coords[train_idx,1], y = coords[train_idx,2], z = z_vec[train_idx])
+      test_df  <- data.frame(x = coords[test_idx,1],  y = coords[test_idx,2],  z = z_vec[test_idx])
+
+      # convert to Spatial objects for gstat (coordinates() from sp)
+      # If sp is not loaded, gstat accepts data.frames but we keep this explicit:
+      sp::coordinates(train_df) <- ~ x + y
+      sp::coordinates(test_df)  <- ~ x + y
+
+      idw_res <- gstat::idw(z ~ 1, train_df, newdata = test_df, idp = p, nmax = nmax)
+      preds <- idw_res$var1.pred
+      errs <- preds - test_df$z
+
+      fold_errs[[fold]] <- errs
+      fold_rmse_mat[pi, fold] <- rmse(errs)
+    }
+
+    all_errs <- unlist(fold_errs)
+    rmse_vec[pi] <- rmse(all_errs)
+  }
+
+  out <- list(p_vals = p_vals, RMSE = rmse_vec, fold_rmse = fold_rmse_mat)
+  out$cv_table <- data.frame(p = p_vals, RMSE = rmse_vec)[order(rmse_vec), ]
+  out
+}
+
+
+# 3) k-fold CV for MBA over parameter grid, using given fold_ids
+
+kfoldcv_mba <- function(pts,
+                        n_vals = c(5, 10, 15, 20),
+                        m_vals = c(2, 3, 4),
+                        h_vals = c(4, 6, 8),
+                        extend = FALSE,
+                        fold_ids,
+                        verbose = TRUE) {
+  coords <- st_coordinates(pts)
+  z_vec <- st_drop_geometry(pts)$z
+  stopifnot(length(fold_ids) == nrow(coords))
+  k <- max(fold_ids)
+
+  param_grid <- expand.grid(n = n_vals, m = m_vals, h = h_vals, stringsAsFactors = FALSE)
+  param_grid$RMSE <- NA_real_
+  # a list-column to store per-fold rmse for each combo
+  param_grid$fold_rmse <- vector("list", nrow(param_grid))
+
+  if (verbose) cat("Testing", nrow(param_grid), "MBA parameter combinations with", k, "fold CV...\n")
+
+  for (j in seq_len(nrow(param_grid))) {
+    n <- param_grid$n[j]
+    m <- param_grid$m[j]
+    h <- param_grid$h[j]
+
+    fold_rmse <- numeric(k)
+    all_errs <- vector("list", k)
+
+    for (fold in 1:k) {
+      test_idx <- which(fold_ids == fold)
+      train_idx <- which(fold_ids != fold)
+
+      train_coords <- coords[train_idx, , drop = FALSE]
+      train_z <- z_vec[train_idx]
+      test_coords <- coords[test_idx, , drop = FALSE]
+      test_z <- z_vec[test_idx]
+
+      # Fit MBA model on training data
+      mba_model <- 
+        mba.surf(xyz = cbind(train_coords, train_z),
+                 no.X = n, no.Y = n, m = m, h = h, extend = extend)
+
+      if (is.null(mba_model)) {
+        # record NA and continue
+        fold_rmse[fold] <- NA_real_
+        all_errs[[fold]] <- NA_real_
+        next
+      }
+      # Extract grid into plain data frame
+      mba_df <- expand.grid(
+        x = mba_model$xyz.est$x,
+        y = mba_model$xyz.est$y
+      )
+
+      # Flatten z matrix to match
+      mba_df$z <- as.vector(mba_model$xyz.est$z)
+
+      # Drop rows with NA z if you want only valid predictions
+      mba_df <- na.omit(mba_df)
+
+      # Predict at test coords using fitted model
+      pred_res <- mba.points(convert_mba_grid_to_xyz(mba_model), data.frame(x = test_coords[,1], y = test_coords[,2]))
+
+      # Extract preds robustly
+      if (is.data.frame(pred_res)) {
+        # common return: columns x,y,z (z name might be "z" or "value"); try to find the 3rd numeric column
+        if ("z" %in% names(pred_res)) {
+          preds <- pred_res$z
+        } else {
+          # try the third column then
+          preds <- pred_res[[3]]
+        }
+      } else if (!is.null(pred_res$xyz.est)) {
+        preds <- pred_res$xyz.est[, 3]
+        # If the grid was returned instead of pointwise results, try closest matching 
+        if (length(preds) != length(test_z)) {
+          preds <- rep(NA_real_, length(test_z))
+        }
+      } else {
+        warning("Unexpected input, filling this fold with NA.")
+        preds <- rep(NA_real_, length(test_z))
+      }
+
+      if (length(preds) != length(test_z)) {
+        warning(sprintf("Length mismatch on fold %d (preds=%d, test=%d). Filling with NA.", fold, length(preds), length(test_z)))
+        L <- min(length(preds), length(test_z))
+        preds <- c(preds[seq_len(L)], rep(NA_real_, length(test_z) - L))
+      }
+
+      errs <- preds - test_z
+      all_errs[[fold]] <- errs
+      fold_rmse[fold] <- rmse(errs)
+    } # end folds
+
+    # store
+    param_grid$fold_rmse[[j]] <- fold_rmse
+    merged_errs <- unlist(all_errs)
+    param_grid$RMSE[j] <- if (all(is.na(merged_errs))) NA_real_ else rmse(merged_errs)
+  } 
+
+  # sort by RMSE
+  param_grid <- param_grid[order(param_grid$RMSE), ]
+  rownames(param_grid) <- NULL
+  param_grid
+}
+
+
+# 5) helper: build a 20x20 grid covering the data bbox
+build_grid20 <- function(pts, nx = 20, ny = 20, pad = 0) {
+  coords <- st_coordinates(pts)
+  rngx <- range(coords[,1])
+  rngy <- range(coords[,2])
+  # optional padding fraction to extend beyond convex hull
+  dx <- diff(rngx); dy <- diff(rngy)
+  rngx <- rngx + c(-pad, pad) * dx
+  rngy <- rngy + c(-pad, pad) * dy
+
+  gx <- seq(rngx[1], rngx[2], length.out = nx)
+  gy <- seq(rngy[1], rngy[2], length.out = ny)
+  grid <- expand.grid(x = gx, y = gy)
+  return(list(grid_df = grid, grid_x = gx, grid_y = gy))
+}
+
+p_vals <- c(0.5, 1, 1.5, 2, 2.5, 3, 4, 5)
+
+# create folds (choose "random" or "spatial_kmeans")
+fold_ids <- create_folds(pts, k = 1, seed = 123, method = "random")
+
+# run IDW CV (fast)
+idw_res <- kfoldcv_idw(pts, p_vals = p_vals, fold_ids = fold_ids, nmax = 15, verbose = TRUE)
+print("IDW CV summary (top results):")
+print(idw_res$cv_table)
+
+# run MBA CV (can be slower)
+mba_res <- kfoldcv_mba(pts,
+                        n_vals = c(20),
+                      #  m_vals = c(2, 3, 4),
+                      #  h_vals = c(4, 6, 8),
+                       extend = FALSE,
+                       fold_ids = fold_ids,
+                       verbose = TRUE)
+
+print("MBA top combos by RMSE:")
+print(head(mba_res[, c("n","m","h","RMSE")] , 10))
+
+# Compare best performers
+best_idw <- idw_res$cv_table[1, ]
+best_mba <- mba_res[1, c("n","m","h","RMSE")]
+cat("Best IDW p:", best_idw$p, "RMSE:", best_idw$RMSE, "\n")
+cat("Best MBA combo: n=", best_mba$n, "m=", best_mba$m, "h=", best_mba$h, "RMSE:", best_mba$RMSE, "\n")
+
+
+
+# predict MBA on a grid (using mba.surf -> use fields::interp.surface to get values at grid nodes)
+predict_mba_to_grid <- function(train_coords, train_z, nx = 20, ny = 20, n = 20, m = mba_res[1,]$m, h =  mba_res[1,]$h, extend = FALSE) {
+  # fit mba.surf with desired grid resolution (no.X/no.Y control resolution, but we also construct explicit grid)
+  mma <- mba.surf(xyz = cbind(train_coords, train_z), no.X = n, no.Y = n, m = m, h = h, extend = extend)
+
+  # mma$xyz.est contains x (vector), y (vector), z (matrix)
+  # produce dataframe of all grid nodes (20x20 requested by assignment: use provided nx,ny)
+  # But mba.surf resolution is controlled by no.X/no.Y; if you need exactly 20x20 use no.X=no.Y=20. 
+  # For robustness, we'll use mma$xyz.est directly and then resample to the assignment's 20x20 grid if needed.
+
+  est <- mma$xyz.est
+  # create fields-style list for interp.surface:
+  mma_list <- list(x = est$x, y = est$y, z = est$z)
+
+  # build the target 20x20 grid:
+  gx <- seq(min(est$x), max(est$x), length.out = nx)
+  gy <- seq(min(est$y), max(est$y), length.out = ny)
+  target_grid <- expand.grid(x = gx, y = gy)
+
+  # interp.surface expects points as matrix: cbind(x,y)
+  preds <- interp.surface(mma_list, as.matrix(target_grid))
+  target_grid$z <- preds
+  return(target_grid) # data.frame with x,y,z (z may contain NAs near edges if not extend)
+}
+
+# 7) predict IDW on the same 20x20 grid
+predict_idw_to_grid <- function(train_coords, train_z, grid_df, idp = 2, nmax = 15) {
+  train_df <- data.frame(x = train_coords[,1], y = train_coords[,2], z = train_z)
+  sp::coordinates(train_df) <- ~ x + y
+
+  # newdata as SpatialPointsDataFrame
+  new_df <- data.frame(x = grid_df$x, y = grid_df$y)
+  sp::coordinates(new_df) <- ~ x + y
+
+  idw_res <- gstat::idw(z ~ 1, train_df, newdata = new_df, idp = idp, nmax = nmax)
+  grid_df$z <- idw_res$var1.pred
+  return(grid_df)
+}
+
+# build grid
+ginfo <- build_grid20(pts, nx = 20, ny = 20, pad = 0.05)
+grid20 <- ginfo$grid_df
+
+# full-data MBA: use no.X=no.Y=20 so returned grid aligns with requested resolution
+mba_grid <- predict_mba_to_grid(st_coordinates(pts), st_drop_geometry(pts)$z,
+                                nx = 20, ny = 20, n = 20, # m = 2, h = 4,
+                                 extend = TRUE)
+# mba_grid is data.frame x,y,z (20x20)
+head(mba_grid)
+# convert to sf / raster for plotting if you want
+
+# full-data IDW
+idw_grid <- predict_idw_to_grid(st_coordinates(pts), st_drop_geometry(pts)$z, grid20, idp = idw_res$cv_table$p[1], nmax = 15)
+head(idw_grid)
+
