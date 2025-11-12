@@ -1,0 +1,619 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Theming with bslib and thematic},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Theming with bslib and thematic}
+\author{}
+\date{\vspace{-2.5em}}
+
+\begin{document}
+\maketitle
+
+\section{Homework 4}\label{homework-4}
+
+\begin{verbatim}
+##   ID1   ID Nome_Regione    Lat10    Lon10    YUTM    XUTM Quota anno totanno
+## 1   1 4071   Basilicata 40.73333 15.91944 4531697 1083655   620 1970  588.69
+## 2   2 4072   Basilicata 40.70000 16.01944 4529037 1092377   568 1970  587.59
+## 3   3 4075   Basilicata 40.93333 15.98611 4554393 1087794   483 1970  546.19
+## 4   4 4081   Basilicata 40.61667 16.15278 4519994 1105035   698 1970  523.51
+## 5   5 4085       Puglia 40.81667 16.41944 4544054 1125172   380 1970  531.39
+## 6   6 4086       Puglia 40.90000 16.50278 4554707 1131911   462 1970  294.60
+\end{verbatim}
+
+\subsection{Exploratory Analysis}\label{exploratory-analysis}
+
+We begin by visualizing our data, and its distribution.
+
+From this initial observation, we can see a general pattern of rainfall
+across the regions, as well as somewhat irregular normality patterns.
+However, to identify the best initial parameters to conduct our
+estimation, we must first plot an empirical variogram of each year of
+interest. And before that, we must first inspect the normality of our
+data.
+
+\begin{verbatim}
+## year= 1976 p value= 0.000001527713 
+## year= 1979 p value= 0.0000008326988 
+## year= 1982 p value= 0.0003342081
+\end{verbatim}
+
+We can see that our values are not normally distributed, after a
+thorough exploration we noticed that log transformations and square root
+transformations of our data improved the normality, since our estimation
+tools give us flexibility with the usage of lambda values we decided to
+include them in our process by automatically idntifying them usng the
+boxcoxfit function.
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-4-1.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-4-2.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-4-3.pdf}}
+
+From the plots above we can see that the variograms become unstable
+after approx. 100 to 150 km. However, we must also identify a good limit
+that ensures isotropy. To do this, we perform a directional empirical
+variogram:
+
+\begin{verbatim}
+## variog: computing variogram for direction = 0 degrees (0 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 45 degrees (0.785 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 90 degrees (1.571 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 135 degrees (2.356 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing variogram for direction = 0 degrees (0 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 45 degrees (0.785 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 90 degrees (1.571 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 135 degrees (2.356 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing variogram for direction = 0 degrees (0 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 45 degrees (0.785 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 90 degrees (1.571 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing variogram for direction = 135 degrees (2.356 radians)
+##         tolerance angle = 22.5 degrees (0.393 radians)
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-5-1.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-5-2.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-5-3.pdf}}
+
+These plots allow us to see the decay after 100 kms for all years except
+1982, which seems to worsen much sooner. However, we assume that 100 km
+is a good enough cutting point for our estimations.
+
+The following variograms will be the ones used for our fitting:
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+\end{verbatim}
+
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-6-1.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-6-2.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-6-3.pdf}}
+
+\subsection{Estimation}\label{estimation}
+
+From our variograms we can spot certain possible models that could fit
+our data; we attempt the Spherical, Exponential, Matérn (kappa=5), and
+Gaussian models.
+
+Comment: The Gaussian model was not invertible; unsure as to why.
+Discuss with professor.
+
+For each model, we cross-validate them and compare their root mean
+square error and coefficient of variation.
+
+From these results, we can identify that the lowest error values
+correspond to the spherical model for the year 1976 and the exponential
+model for the remaining years.
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is matern 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq  kappa
+## initial.value "0.01"  "15.38" "0.01" "3"  
+## status        "est"   "est"   "est"  "fix"
+## loss value: 0.00487828531209432 
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 181
+## xvalid: number of validation locations = 181
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 
+## xvalid: end of cross-validation
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is matern 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq  kappa
+## initial.value "2.04"  "15.38" "0.68" "3"  
+## status        "est"   "est"   "est"  "fix"
+## loss value: 406.120207235273 
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 181
+## xvalid: number of validation locations = 181
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 
+## xvalid: end of cross-validation
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is matern 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq   kappa
+## initial.value "14.83" "15.38" "14.83" "3"  
+## status        "est"   "est"   "est"   "fix"
+## loss value: 20820.3835529824 
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 173
+## xvalid: number of validation locations = 173
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 
+## xvalid: end of cross-validation
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is exponential 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq kappa
+## initial.value "0.01"  "30.77" "0"   "0.5"
+## status        "est"   "est"   "est" "fix"
+## loss value: 0.00627202679678718 
+## kappa not used for the exponential correlation function
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 181
+## xvalid: number of validation locations = 181
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 
+## xvalid: end of cross-validation
+\end{verbatim}
+
+\begin{verbatim}
+## krige.conv: model with constant mean
+## krige.conv: performing the Box-Cox data transformation
+## krige.conv: back-transforming the predicted mean and variance
+## krige.conv: back-transforming by simulating from the predictive.
+##            (run the function a few times and check stability of the results.
+## krige.conv: Kriging performed using global neighbourhood 
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is exponential 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq  kappa
+## initial.value "2.04"  "46.15" "0.68" "0.5"
+## status        "est"   "est"   "est"  "fix"
+## loss value: 226.407950874535 
+## kappa not used for the exponential correlation function
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 181
+## xvalid: number of validation locations = 181
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 
+## xvalid: end of cross-validation
+\end{verbatim}
+
+\begin{verbatim}
+## krige.conv: model with constant mean
+## krige.conv: performing the Box-Cox data transformation
+## krige.conv: back-transforming the predicted mean and variance
+## krige.conv: back-transforming by simulating from the predictive.
+##            (run the function a few times and check stability of the results.
+## krige.conv: Kriging performed using global neighbourhood
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is exponential 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq  kappa
+## initial.value "22.25" "30.77" "7.42" "0.5"
+## status        "est"   "est"   "est"  "fix"
+## loss value: 23905.6158470364 
+## kappa not used for the exponential correlation function
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 173
+## xvalid: number of validation locations = 173
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 
+## xvalid: end of cross-validation
+\end{verbatim}
+
+\begin{verbatim}
+## krige.conv: model with constant mean
+## krige.conv: performing the Box-Cox data transformation
+## krige.conv: back-transforming the predicted mean and variance
+## krige.conv: back-transforming by simulating from the predictive.
+##            (run the function a few times and check stability of the results.
+## krige.conv: Kriging performed using global neighbourhood
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is spherical 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq kappa
+## initial.value "0.01"  "76.92" "0"   "0.5"
+## status        "est"   "est"   "est" "fix"
+## loss value: 0.00949080358628735 
+## kappa not used for the spherical correlation function
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 181
+## xvalid: number of validation locations = 181
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 
+## xvalid: end of cross-validation
+\end{verbatim}
+
+\begin{verbatim}
+## krige.conv: model with constant mean
+## krige.conv: performing the Box-Cox data transformation
+## krige.conv: back-transforming the predicted mean and variance
+## krige.conv: back-transforming by simulating from the predictive.
+##            (run the function a few times and check stability of the results.
+## krige.conv: Kriging performed using global neighbourhood
+\end{verbatim}
+
+\begin{verbatim}
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is spherical 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq  kappa
+## initial.value "2.04"  "61.53" "0.27" "0.5"
+## status        "est"   "est"   "est"  "fix"
+## loss value: 253.742683880423 
+## kappa not used for the spherical correlation function
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 181
+## xvalid: number of validation locations = 181
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 
+## xvalid: end of cross-validation
+\end{verbatim}
+
+\begin{verbatim}
+## krige.conv: model with constant mean
+## krige.conv: performing the Box-Cox data transformation
+## krige.conv: back-transforming the predicted mean and variance
+## krige.conv: back-transforming by simulating from the predictive.
+##            (run the function a few times and check stability of the results.
+## krige.conv: Kriging performed using global neighbourhood 
+## variog: computing omnidirectional variogram
+## variofit: covariance model used is spherical 
+## variofit: weights used: npairs 
+## variofit: minimisation function used: optim
+\end{verbatim}
+
+\begin{verbatim}
+## variofit: searching for best initial value ... selected values:
+##               sigmasq phi     tausq  kappa
+## initial.value "22.25" "76.92" "7.42" "0.5"
+## status        "est"   "est"   "est"  "fix"
+## loss value: 47549.2852145034 
+## kappa not used for the spherical correlation function
+## ---------------------------------------------------------------
+## likfit: likelihood maximisation using the function optim.
+## likfit: Use control() to pass additional
+##          arguments for the maximisation function.
+##         For further details see documentation for optim.
+## likfit: It is highly advisable to run this function several
+##         times with different initial values for the parameters.
+## likfit: WARNING: This step can be time demanding!
+## ---------------------------------------------------------------
+## likfit: end of numerical maximisation.
+## xvalid: number of data locations       = 173
+## xvalid: number of validation locations = 173
+## xvalid: performing cross-validation at location ... 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 
+## xvalid: end of cross-validation
+\end{verbatim}
+
+\begin{verbatim}
+## krige.conv: model with constant mean
+## krige.conv: performing the Box-Cox data transformation
+## krige.conv: back-transforming the predicted mean and variance
+## krige.conv: back-transforming by simulating from the predictive.
+##            (run the function a few times and check stability of the results.
+## krige.conv: Kriging performed using global neighbourhood
+\end{verbatim}
+
+\begin{verbatim}
+##      sph_error    sph_cv exp_error    exp_cv matern_error matern_cv
+## 1976  336.0956 0.2249346  336.1682 0.2267217     336.2056 0.2267486
+## 1979  278.2001 0.3173078  277.4478 0.3181488     277.4479 0.3181478
+## 1982  256.5585 0.2640422  253.2217 0.2657536     253.2218 0.2657527
+\end{verbatim}
+
+\begin{verbatim}
+## [1] "kappa=5"
+\end{verbatim}
+
+\begin{verbatim}
+## 1976 lowest value: sph_error 
+## 1979 lowest value: exp_error 
+## 1982 lowest value: exp_error
+\end{verbatim}
+
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-7-1.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-7-2.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-7-3.pdf}}
+
+Given this information, we proceed to use their parameters to estimate
+our beta values for each year, as well as the kriging of our predictions
+and the estimation of their confidence interval.
+
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-1.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-2.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-3.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-4.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-5.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-6.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-7.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-8.pdf}}
+\pandocbounded{\includegraphics[keepaspectratio]{homework4report_files/figure-latex/unnamed-chunk-8-9.pdf}}
+
+This concludes our estimation of each year of rainfall data using the ML
+method.
+
+\subsection{Comments}\label{comments}
+
+Overall we can see a general pattern of rainfall present around the
+western coast of Basc and Cal. This pattern is consistent across all
+years and could point to a proper general estimation of where rain
+occurs in these regions. Additionally, these patterns remain consistent
+even after estimating the upper and lower bounds, as well as generally
+following the original pattern of the data (as intended).
+
+There are still concerning aspects of our estimation. Our errors seem to
+be relatively high, and while our rainfall estimates remain consistent
+with a somewhat stable spatial distribution, our variance gives us very
+wide confidence intervals, with hardly enough additional information
+added by our model.
+
+Below we can see some quality measurements of our final estimation,
+particularly the ratio between the variance of our prediction and the
+variance of our data, as well as the median value of the relative width
+of each point.
+
+\begin{verbatim}
+## 1976 Kriging variance / data variance ratio: 0.89467
+\end{verbatim}
+
+\begin{verbatim}
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  0.7652  0.8519  0.8846  0.9072  0.9199  1.3327
+\end{verbatim}
+
+\begin{verbatim}
+## 1979 Kriging variance / data variance ratio: 0.7507537
+\end{verbatim}
+
+\begin{verbatim}
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  0.8295  0.9833  1.0461  1.0971  1.1671  1.8081
+\end{verbatim}
+
+\begin{verbatim}
+## 1982 Kriging variance / data variance ratio: 0.8654117
+\end{verbatim}
+
+\begin{verbatim}
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  0.7619  1.0306  1.1312  1.2103  1.3838  1.8782
+\end{verbatim}
+
+Additionally, we've already seen the values of our variation
+coefficient, which, despite being approximately good (there is no
+standard, but usually between 15\% and 20\%), are on the upper bound or
+sometimes exceeding this ``rule of thumb'' value.
+
+Our worst estimate seems to be 1982, which also has a particularly
+explosive directional empirical variogram, and our second worst estimate
+is 1979, which has a very unusual growth pattern in the empirical
+variogram for the first few kilometers.
+
+Overall our estimates are ``good enough'' in the sense that they provide
+minimally useful information, but they could be improved (perhaps
+creative use of covariates across years, algorithmic exploration of
+kappa values for the matern model, or dynamic cross validation with
+multiple parameters, as well as Bayesian estimation).
+
+\end{document}

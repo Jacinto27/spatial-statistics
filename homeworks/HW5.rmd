@@ -1,0 +1,139 @@
+---
+title: "Hw5_1970"
+author: "Novelli, Barillari, Chiriatti"
+date: "2025-11-10"
+output: html_document
+---
+```{r echo=TRUE, warning=FALSE}
+# packages
+require(geoR) 
+require(akima) 
+require(scoringutils)
+# already prepared data (as in Homework 4) + krige results (for later)
+load("/Users/elenanovelli/Desktop/UNIVERSITA/Spatial statistics and spacial tools/Spatial_R/RainData.RData")
+load("/Users/elenanovelli/Desktop/UNIVERSITA/Spatial statistics and spacial tools/Spatial_R/Environment_hw4.RData")
+# implementation of distance in KM 
+dati$XUTMkm= dati$XUTM/1000 
+dati$YUTMkm= dati$YUTM/1000
+```
+
+
+##1970
+
+```{r echo=TRUE, warning=FALSE}
+
+# years of G9
+dati_1970<-dati[dati$anno==1970,] 
+
+# conversion in "geodata"
+
+dati70 = as.geodata(dati_1970, coords.col = c(11,12), data.col= 10, covar.col= 8)
+```
+
+```{r echo=TRUE, warning=FALSE}
+# trend on the dataset
+#trend.d<-trend.spatial("1st", geodata=dati70, add = ~Quota)
+trend.d<-trend.spatial(~ Quota, geodata=dati70)
+
+BasCalquota32 <- rbind(
+    Calabriaquota32[, c("XUTM", "YUTM", "Quota")],
+    Basquota32[, c("XUTM", "YUTM", "Quota")]
+)
+BasCalquota32[,1] <- BasCalquota32[,1]/1000
+BasCalquota32[,2] <- BasCalquota32[,2]/1000
+
+# trend on the locations where to apply the interpolation
+trend.l<-trend.spatial("1st", geodata=list(coords=BasCalquota32[,1:2]), add = ~BasCalquota32[,3])
+
+# model settings
+model.list=model.control(trend.d = trend.d, trend.l = trend.l, cov.model = "spherical",lambda = lambda_1970)
+# prior assumptions based on "eyefit()" on the variograms
+PC70 <- prior.control(phi.prior = "uniform", phi.disc=seq(40,600,10),
+tausq.rel.prior= "uniform", tausq.rel.discrete=seq(0,0.5,0.01))
+
+# testing the behavior of the priors
+xy70.bayes_try <- krige.bayes(dati70, model = model.list, prior = PC70) 
+```
+
+```{r echo=TRUE, warning=FALSE}
+par(mfrow=c(1,2)) 
+plot(xy70.bayes_try, type="bars")
+```
+
+```{r echo=TRUE, warning=FALSE}
+# 1000 simulations per location
+output=output.control(n.posterior=1000, n.predictive=1000,
+quantile=c(0.025,0.975))
+PC70<- prior.control(phi.prior = "uniform", phi.disc=seq(19,23,1),
+tausq.rel.prior= "uniform", tausq.rel.discrete=seq(0.18,0.23,0.01))
+```
+
+```{r echo=TRUE, warning=FALSE}
+xy70.bayes <- krige.bayes(dati70,model = model.list,loc=BasCalquota32[,1:2],prior = PC70, output = output)
+interp70<-interp(BasCalquota32[,1],BasCalquota32[,2],xy70.bayes$predictive$mean)
+
+interp70.var<-interp(BasCalquota32[,1],BasCalquota32[,2],xy70.bayes$predictive$variance)
+```
+```{r echo=TRUE, warning=FALSE}
+image(interp70)
+title("Predicted values for year 1970")
+```
+```{r echo=TRUE, warning=FALSE}
+image(interp70.var)
+title("Prediction variance for year 1970")
+points(dati70,add=T,col="red")
+```
+
+##Solution 2
+
+```{r echo=TRUE, warning=FALSE}
+CI70 = xy70.bayes$predictive$quantiles.simulations
+head(CI70)
+
+library(scoringutils)
+rows <- nrow(dati_1970)
+ ing70<-matrix(NA,rows,2)
+for (i in 1:rows){
+LOO_1970_train<-dati_1970[-i,]
+LOO_1970_test<-dati_1970[i,]
+LOO70_train<-as.geodata(LOO_1970_train,
+                        coords.col = c(11,12),data.col= 10, covar.col= 8)
+LOO70_test<-as.geodata(LOO_1970_test,
+                       coords.col = c(11,12),data.col= 10, covar.col= 8)
+trend.d<-trend.spatial("1st", geodata=LOO70_train, add = ~Quota)
+trend.l<-trend.spatial("1st", geodata=LOO70_test, add = ~Quota)
+model.list=model.control(trend.d = trend.d, trend.l = trend.l,
+                         cov.model = "spherical",lambda = lambda_1970)
+interp<-krige.bayes(LOO70_train, model = model.list,
+                    loc=LOO70_test$coords,prior = PC70, output = output)
+ing70[i,1:2]<-as.numeric(interp$predictive$quantiles.simulations)
+rm(list=c("LOO_1970_train","LOO_1970_test","LOO70_train","LOO70_test","trend.d","trend.l"))
+}  
+#Function interval_score
+interval_score <- function(observed, lower, upper, interval_range, weigh=TRUE, separate_results = FALSE) {
+  
+  alpha <- (100 - interval_range) / 100
+  
+  dispersion <- (upper-lower)
+  underprediction <- (2/alpha)*(lower-observed)*as.numeric(observed < lower)
+  overprediction <- (2/alpha)*(observed-upper)*as.numeric(observed > upper)
+  
+  score = dispersion + underprediction + overprediction
+  
+  if (weigh) {
+    dispersion <- dispersion * alpha / 2
+    underprediction <- underprediction * alpha / 2
+    overprediction <- overprediction * alpha / 2
+  }
+ return(score)
+}
+
+IS.70 <-
+  interval_score(
+  observed = log(dati_1970$totanno), 
+  lower = log(ing70[,1]),
+  upper = log(ing70[,2]),
+  interval_range = 95
+)
+mean(IS.70)
+```
